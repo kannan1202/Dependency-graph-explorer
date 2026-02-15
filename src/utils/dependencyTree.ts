@@ -24,9 +24,9 @@ export const buildDependencyTree = async (
     ): Promise<void> => {
         
         const nodeKey = `${packageName}@${packageVersion}`;
-        console.log(`  ${'  '.repeat(depth)}📦 ${nodeKey} (depth: ${depth})`)
+        console.log(`  ${'  '.repeat(depth)} ${nodeKey} (depth: ${depth})`)
         if(visited.has(nodeKey)){
-            console.log(`  ${'  '.repeat(depth)}  ↻ Already visited - cycle detected!`)
+            console.log(`  ${'  '.repeat(depth)} Already visited - cycle detected!`)
             if(parentId && nodeMap.has(nodeKey)){
                 edges.push({
                     source:parentId,
@@ -55,10 +55,10 @@ export const buildDependencyTree = async (
             type:depth===0?'root':'dependency'
         }
         nodes.push(node)
-        console.log(`  ${'  '.repeat(depth)}  ➕ Added to nodes array`)
+        console.log(`  ${'  '.repeat(depth)}  Added to nodes array`)
 
         nodeMap.set(nodeKey,nodeId);
-        console.log(`  ${'  '.repeat(depth)}  💾 Stored in nodeMap`);
+        console.log(`  ${'  '.repeat(depth)}  Stored in nodeMap`);
 
         if(parentId){
             const edge:DependencyEdge = {
@@ -66,7 +66,7 @@ export const buildDependencyTree = async (
                 target:nodeId
             }
             edges.push(edge)
-            console.log(`  ${'  '.repeat(depth)}  🔗 Created edge: ${parentId} → ${nodeId}`)
+            console.log(`  ${'  '.repeat(depth)} Created edge: ${parentId} → ${nodeId}`)
         }
 
         //
@@ -75,10 +75,10 @@ export const buildDependencyTree = async (
             packageDependencies = dependencies;
         }else{
             //fetching the dependency info from npm
-            console.log(`  ${'  '.repeat(depth)}  🌐 Fetching from npm...`)
+            console.log(`  ${'  '.repeat(depth)}  Fetching from npm...`)
             const packageInfo = await fetchNpmPackage(packageName)
             if(!packageInfo){
-                console.log(`  ${' '.repeat(depth)} ❌ Failed to fetch package info`);
+                console.log(`  ${' '.repeat(depth)} Failed to fetch package info`);
                 return
             }
             console.log(packageInfo);
@@ -86,7 +86,7 @@ export const buildDependencyTree = async (
         }
 
         if (Object.keys(packageDependencies).length === 0) {
-            console.log(`  ${'  '.repeat(depth)}  📭 No dependencies`)
+            console.log(`  ${'  '.repeat(depth)} No dependencies`)
             return
         }
         const depsToFetch = Object.entries(packageDependencies).slice(0, 5)

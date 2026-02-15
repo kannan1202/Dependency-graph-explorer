@@ -1,51 +1,68 @@
 import { useState } from 'react'
 import { parsedPackageJson, getExamplePackageJson } from './utils/packageParse'
-import type { parsedPackageData } from './types/package.types'
+import type { parsedPackageData, DependencyGraph as DependencyGraphType } from './types/package.types'
 import { fetchMultiplePackages } from './utils/npmApi';
+import { buildDependencyTree } from './utils/dependencyTree';
+import { DependencyGraph } from './components/DependencyGraph';
+
 
 function App() {
-  const [packageInput,setPackageInput] = useState<string>('');
-  const [parsedData, setParsedData] = useState<parsedPackageData | null>(null);
-  const [error,setError] = useState('');
+  const [packageInput, setPackageInput] = useState('')
+  const [parsedData, setParsedData] = useState<parsedPackageData | null>(null)
+  const [graphData, setGraphData] = useState<DependencyGraphType | null>(null)
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
 
                           
   const loadExample = ()=>{
     setPackageInput(getExamplePackageJson());
     setParsedData(null);
     setError('');
+    setGraphData(null);
   } 
 
   const handleAnalyze = async ()=>{
     setError('');
     setParsedData(null);
+    setGraphData(null)
+    setLoading(true)
     try{
       const parsed = parsedPackageJson(packageInput);
       setParsedData(parsed);
-      const packageInfoMap = await fetchMultiplePackages(parsed.dependencies);
-      console.log(packageInfoMap);
-      console.log(packageInfoMap.get("react"));
+      const graph = await buildDependencyTree(
+        parsed.name,
+        parsed.version,
+        parsed.dependencies,
+        4
+      )
+      setGraphData(graph)
+      console.log(`Graph Data: ${graph}`);
     }catch(err){
       if(err instanceof Error){
         setError(err.message);
       }else{
         setError("Invalid JSON format");
       }
+    } finally{
+      setLoading(false)
     }
   }
 
   return (
-    <div className='min-h-screen'>
-      <header className="border-b border-gray-200 p-8">
-        <h1 className="text-4xl font-light tracking-tight">Dependency Graph Explorer</h1>
+    <div className='h-screen bg-black text-white flex flex-col overflow-hidden'>
+      <header className="border-b border-gray-200 p-8 bg-white sticky top-0 z-50">
+        <div className='max-w-6xl mx-auto'>
+        <h1 className="text-4xl font-light tracking-tight text-black">Dependency Graph Explorer</h1>
         <p className="text-gray-600 text-sm mt-2 font-light">
           Visualize npm package dependencies
         </p>
+        </div>
       </header>
-      <main className='p-8'>
-        <div className='max-w-4xl mx-auto'>
+      <main className='p-8 flex-1 overflow-y-auto'>
+        <div className='max-w-6xl mx-auto space-y-6'>
 
-            <div className="bg-white text-black rounded-lg p-8 border border-gray-200 mb-4 shadow-sm">
-              <label className='block text-sm font-semibold mb-2 tracking-wider text-gray-700'>PACKAGE.JSON:</label>
+            <div className="bg-white text-black rounded-lg p-8 border border-gray-200 shadow-sm">
+              <label className='block text-xs font-semibold mb-3 tracking-wider text-gray-700 uppercase'>PACKAGE.JSON:</label>
               <textarea 
               value={packageInput}
               onChange={(e)=>setPackageInput(e.target.value)}
@@ -56,10 +73,10 @@ function App() {
 
               <div className='flex gap-3 mt-4'>
                 <button 
-                  disabled={!packageInput.trim()} 
+                  disabled={loading || !packageInput.trim()} 
                   onClick={handleAnalyze}
-                  className='flex-1 bg-black text-white px-6 py-3 rounded-lg font-medium cursor-pointer hover:bg-gray-800 disabled:bg-gray-300 disabled:text-gray-400 disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-200'>
-                  Analyze Dependencies
+                  className='flex-1 bg-black text-white px-6 py-3 rounded-lg font-medium cursor-pointer hover:bg-gray-800 disabled:bg-gray-200 disabled:text-gray-400 disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-200'>
+                  {loading? "Analyzing...":"Analyze Dependencies"}
                 </button>
                 <button 
                 className='px-6 py-3 rounded-lg font-medium border cursor-pointer border-gray-300 hover:border-black hover:bg-gray-50 transition-all duration-200 hover:shadow-sm'
@@ -85,7 +102,38 @@ function App() {
               </div>
             )}
 
-            {parsedData && (
+            {loading && (
+              <div className="bg-white text-black rounded-lg p-8 border border-gray-200 shadow-sm">
+                <div className="text-center">
+                  <p className="text-gray-600 mb-2">Building dependency tree...</p>
+                  <p className="text-sm text-gray-400">This may take a few seconds</p>
+                </div>
+              </div>
+            )}
+
+            {graphData && !loading && (
+              <div className="bg-white text-black rounded-lg p-8 border border-gray-200 shadow-sm">
+                <h2 className="text-2xl font-light mb-6">Dependency Graph</h2>
+                
+                <div className="grid grid-cols-3 gap-8 mb-8 pb-8 border-b border-gray-100">
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1 tracking-wide uppercase">TOTAL PACKAGES</p>
+                    <p className="text-2xl font-medium">{graphData.totalNodes}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1 tracking-wide uppercase">CONNECTIONS</p>
+                    <p className="text-2xl font-medium">{graphData.edges.length}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1 tracking-wide uppercase">MAX DEPTH</p>
+                    <p className="text-2xl font-medium">{graphData.maxDepth}</p>
+                  </div>
+                </div>
+                <DependencyGraph data={graphData} />
+              </div>
+            )}
+
+            {parsedData && !loading && (
               <div className='bg-white text-black rounded-lg p-8 border border-gray-200 shadow-sm'>
                 <h1 className='bg-white text-black rounded-lg p-8 mb-4 border border-gray-200 text-2xl'>Analysis Results</h1>
 

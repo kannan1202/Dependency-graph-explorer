@@ -45,3 +45,31 @@ export interface NpmPackageInfo {
     main?: string
     engines?: Record<string, string>
 }
+
+export interface DependencyNode {
+  
+  id: string              
+  name: string           
+  version: string       
+  depth: number         
+  type: 'root' | 'dependency'
+  x?: number             
+  y?: number             
+  vx?: number            
+  vy?: number            
+  fx?: number | null     
+  fy?: number | null     
+  index?: number         
+}
+
+export interface DependencyEdge {
+  source: string         
+  target: string         
+}
+
+export interface DependencyGraph {
+  nodes: DependencyNode[]
+  edges: DependencyEdge[]
+  totalNodes: number
+  maxDepth: number
+}
