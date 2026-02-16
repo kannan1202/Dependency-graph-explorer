@@ -4,9 +4,11 @@ import type { DependencyGraph as GraphData, DependencyNode } from '../types/pack
 
 interface Props {
   data: GraphData
+  onNodeClick?: (nodeId:string)=>void
+  selectedNodeId?: string|null
 }
 
-export const DependencyGraph = ({ data }: Props) => {
+export const DependencyGraph = ({ data, onNodeClick, selectedNodeId }: Props) => {
   const svgRef = useRef<SVGSVGElement>(null)
   const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null)
 
@@ -68,8 +70,8 @@ export const DependencyGraph = ({ data }: Props) => {
         if (d.depth === 3) return '#355e4a'
         return '#88c139'
       })
-      .attr('stroke', '#000')
-      .attr('stroke-width', 1)
+      .attr('stroke', d => d.id === selectedNodeId?'#fff':'#000')
+      .attr('stroke-width', d => d.id === selectedNodeId?3:1 )
       .style('cursor', 'pointer')
 
     console.log('Drew', data.nodes.length, 'nodes')
@@ -119,8 +121,14 @@ export const DependencyGraph = ({ data }: Props) => {
       .on('end', dragEnded)
 
     node.call(drag)
-
     console.log('Drag enabled')
+
+    node.on('click',(event, d:DependencyNode)=>{
+      event.stopPropagation();
+      if(onNodeClick){
+        onNodeClick(d.id)
+      }
+    })
 
     function dragStarted(event: any, d: DependencyNode) {
       if (!event.active) simulation.alphaTarget(0.3).restart()

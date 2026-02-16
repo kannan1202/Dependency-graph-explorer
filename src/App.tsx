@@ -7,11 +7,13 @@ import { DependencyGraph } from './components/DependencyGraph';
 
 
 function App() {
-  const [packageInput, setPackageInput] = useState('')
-  const [parsedData, setParsedData] = useState<parsedPackageData | null>(null)
-  const [graphData, setGraphData] = useState<DependencyGraphType | null>(null)
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [packageInput, setPackageInput] = useState('');
+  const [parsedData, setParsedData] = useState<parsedPackageData | null>(null);
+  const [graphData, setGraphData] = useState<DependencyGraphType | null>(null);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [selectedNode, setSelectedNode] = useState<string|null>(null);
+  const [nodeDetails, setNodeDetails] = useState<any>(null);
 
                           
   const loadExample = ()=>{
@@ -45,6 +47,44 @@ function App() {
       }
     } finally{
       setLoading(false)
+    }
+  }
+
+  const handleNodeClick = async (nodeId:string)=>{
+    if(!graphData) return;
+
+    const node = graphData.nodes.find(n=>n.id === nodeId);
+    if(!node) return;
+    setSelectedNode(nodeId);
+
+    try{
+      const response = await fetch(`https://registry.npmjs.org/${node.name}`);
+      if(!response.ok) throw new Error('Failed to fetch the package details');
+
+      const data = await response.json();
+      const latestVersion = data['dist-tags']?.latest || Object.keys(data.versions||{}).pop();
+      const versionData = data.versions?.[latestVersion];
+
+      setNodeDetails({
+        name:node.name,
+        version:node.version,
+        description:versionData?.description || "No description available",
+        homepage: versionData?.homepage,
+        license: versionData?.license,
+        repository: versionData?.repository?.url,
+        dependencies: versionData?.dependencies || {},
+        devDependencies: versionData?.devDependencies || {},
+        keywords: versionData?.keywords || [],
+        maintainers: data.maintainers || []
+      })
+    } catch(err){
+      console.error('Failed to fetch node details:', err);
+      setNodeDetails({
+        name: node.name,
+        version: node.version,
+        description: 'Failed to load package details',
+        error: true
+      })
     }
   }
 
@@ -129,7 +169,111 @@ function App() {
                     <p className="text-2xl font-medium">{graphData.maxDepth}</p>
                   </div>
                 </div>
-                <DependencyGraph data={graphData} />
+                <DependencyGraph 
+                  data={graphData} 
+                  onNodeClick={handleNodeClick}
+                  selectedNodeId={selectedNode}
+                />
+              </div>
+            )}
+
+            {nodeDetails && !loading && (
+              <div className="bg-white text-black rounded-lg p-8 border border-gray-200 shadow-sm">
+                <div className="flex justify-between items-start mb-6">
+                  <h2 className="text-2xl font-light">Package Details</h2>
+                  <button
+                    onClick={() => {
+                      setSelectedNode(null)
+                      setNodeDetails(null)
+                    }}
+                    className="text-gray-400 hover:text-black transition-colors"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {nodeDetails.error? (
+                  <p className="text-red-600">{nodeDetails.description}</p>
+                ):(
+                  <>
+                    <div className="mb-6 pb-6 border-b border-gray-200">
+                      <h3 className="text-xl font-semibold mb-2">{nodeDetails.name}</h3>
+                      <p className="text-sm text-gray-600 mb-3">{nodeDetails.description}</p>
+                      <div className="flex gap-3 text-xs">
+                        <span className="bg-gray-100 px-2 py-1 rounded">v{nodeDetails.version}</span>
+                        {nodeDetails.license && (
+                          <span className="bg-gray-100 px-2 py-1 rounded">{nodeDetails.license}</span>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4 mb-6">
+                      <a 
+                        href={`https://npmjs.com/package/${nodeDetails.name}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 px-4 py-3 border border-gray-300 rounded-lg hover:border-black hover:bg-gray-50 transition-all text-sm"
+                      >
+                        <span>View on npm</span>
+                      </a>
+                      
+                      {nodeDetails.homepage && (
+                        <a
+                          href={nodeDetails.homepage}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2 px-4 py-3 border border-gray-300 rounded-lg hover:border-black hover:bg-gray-50 transition-all text-sm"
+                        >
+                          <span>Homepage</span>
+                        </a>
+                      )}
+                    </div>
+                    
+                    <div className="grid grid-cols-3 gap-6 mb-6">
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1 tracking-wide uppercase">Dependencies</p>
+                        <p className="text-lg font-medium">{Object.keys(nodeDetails.dependencies).length}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1 tracking-wide uppercase">Dev Dependencies</p>
+                        <p className="text-lg font-medium">{Object.keys(nodeDetails.devDependencies).length}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1 tracking-wide uppercase">Keywords</p>
+                        <p className="text-lg font-medium">{nodeDetails.keywords.length}</p>
+                      </div>
+                    </div>
+
+                    {nodeDetails.keywords.length > 0 && (
+                      <div className="mb-6">
+                        <p className="text-xs text-gray-500 mb-2 tracking-wide uppercase">Keywords</p>
+                        <div className="flex flex-wrap gap-2">
+                          {nodeDetails.keywords.slice(0, 10).map((keyword: string) => (
+                            <span key={keyword} className="bg-gray-100 px-3 py-1 rounded-full text-xs">
+                              {keyword}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {nodeDetails.maintainers.length > 0 && (
+                      <div>
+                        <p className="text-xs text-gray-500 mb-2 tracking-wide uppercase">Maintainers</p>
+                        <div className="space-y-2">
+                          {nodeDetails.maintainers.slice(0, 3).map((maintainer: any) => (
+                            <div key={maintainer.email} className="text-sm">
+                              <span className="font-medium">{maintainer.name}</span>
+                              <span className="text-gray-500 ml-2">{maintainer.email}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                  </>
+                )}
+
               </div>
             )}
 
